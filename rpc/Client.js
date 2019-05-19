@@ -2,34 +2,16 @@ const net = require("net");
 
 const port = 8080;
 
-const Protocol = require("./Protocol.js");
-const RpcBuffer = require("./RpcBuffer.js");
-const ParamList = require('./ParamList.js');
-const Package = require('./Package.js');
-/*var siteCli = new SiteClient();
-var siteInfo = null;
-siteCli.getSiteInfo(aid, siteId, function(info){
-	siteInfo = info
-});*/
+const { Protocol, Package } = require("./base");
 
-
-/*siteCli.getSiteInfo()
-	.then(function(){})
-	.catch(function(){});*/
-
-function Client(){
-	this.serverConfig = null;
-	this.init();
+function Client(options){
+	this.serverConfig = Object.assign({
+		host: '',
+		port: 0
+	},  options);
 }
 Client.prototype = {
 	constructor:Client,
-	init: function(){
-		this.serverConfig = {
-			port: 8080,
-			// host: 'localhost'
-		};
-	},
-	//promise的jiekou
 	send: function(sendProtocol){
 		var $self = this;
 		return new Promise(function(resolve, reject){
@@ -40,8 +22,8 @@ Client.prototype = {
 			socket.on("connect", function(){
 				var sendBuffer = sendProtocol.send();//把协议里面的buffer拿出来发送;
 
+				//确实需要package处理粘包问题
 				var sendPack = new Package();
-
 				var sendPackBuf = sendPack.pack(sendBuffer);
 				
 				socket.write(sendPackBuf);
@@ -90,47 +72,5 @@ Client.prototype = {
 	}
 };
 
-function SiteClient(){
 
-}
-SiteClient.prototype = {
-	constructor: SiteClient,
-	getSiteInfo: function(aid, siteId){
-
-		var flow = 996;
-
-		var sendBuffer = new RpcBuffer();
-		sendBuffer.putInt(1, aid);//aid
-		sendBuffer.putInt(2, siteId);//siteId
-
-		var sendProtocol = new Protocol();
-		sendProtocol.setCmd(2);
-		sendProtocol.setFlow(flow);
-		sendProtocol.addEncodeBody(sendBuffer);
-
-
-		//发送数据
-		return new Client().send(sendProtocol).then(function(recvProtocol){
-			
-			//解析协议里面的数据
-			if(recvProtocol.getFlow() !== flow){
-				console.log("流水号不匹配");
-			}
-
-			var list = new ParamList();
-			list.fromBuffer(recvProtocol.body, {}, {
-				aid: 1,
-				siteId: 2,
-				name: 3
-			});
-			console.log(list);
-
-		});
-	}
-};
-
-new SiteClient().getSiteInfo(2, 3).then(function(info){
-	console.log("info",info);
-}, function(err){
-	console.log(err);
-});
+module.exports = Client;

@@ -13,7 +13,8 @@ https://www.imooc.com/article/38126
 	//方法名(cmd)、参数(data)、返回值(result)
 }
 */
-const RpcBuffer = require("./RpcBuffer");
+const RpcBuffer = require("./RpcBuffer.js");
+const Errno = require("./Errno.js");
 
 function Protocol(){
 	this.head = new Head();
@@ -112,13 +113,13 @@ Head.prototype = {
 		//固定数据
 		var version = buffer.readUInt8(offset);offset+=1;
 		if(version !== this.VERSION){
-			return false;
+			return Errno.ERROR;
 		}
 		
 
 		var headLength = buffer.readUInt8(offset);offset+=1;
 		if(headLength !== this.HEAD_LENGTH){
-			return false;
+			return Errno.ERROR;
 		}
 
 		//可变数据
@@ -133,7 +134,7 @@ Head.prototype = {
 		this.flow = flow;
 		this.result = result;
 
-		return true;
+		return Errno.OK;
 	}
 };
 

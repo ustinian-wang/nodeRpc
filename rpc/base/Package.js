@@ -1,43 +1,32 @@
 //对二进制数据进行打包
 function Package(){
-	this.length = 0;//包裹的长度
-	this.firstPuted = true;
-	this.recvHandler = null;
-	this.packBuf = null;
-
-	this.running = true;
+	this.packLen = 0;//包裹的长度
+	this.recvHandler = null;//接受完成事件
+	this.packBuf = null;//数据容器
 }
+//预留32位记录buffer的长度，最大记录4G，buffer在64位机上存储2G内存
 Package.prototype = {
 	constructor: Package,
-	putData: function(buffer){
+	putData: function(packSliceBuf){
 		//初始化空间，存储buffer内容
-		if(this.firstPuted){
-			var contentLen = buffer.readUInt32BE(0);
-			this.packBuf = Buffer.alloc(4+contentLen);
-			this.firstPuted = false;
+		if(!this.packBuf){
+			this.init(packSliceBuf);
 		}
+		//把数据碎片内容写入容器中
+		packSliceBuf.copy(this.packBuf, this.packLen);
+		this.packLen+=packSliceBuf.length;//记录接收数据的长度
 
-		buffer.copy(this.packBuf, this.length);
-		this.length+=buffer.length;
-
-		var $self = this;
-
-		$self.running = true;
-		process.nextTick(function(){
-			if($self.running){
-				$self._onDataRecv();
-			}
-		});
+		//如果有函数回调注入，然后检查正常，出发接受完毕事假
+		if(this.recvHandler && this.checkRecv()){
+			this.recvHandler(this.unPack(this.packBuf));
+		}
+	},
+	init: function(firstPackSlickBuf){
+		var contentLen = firstPackSlickBuf.readUInt32BE(0);
+		this.packBuf = Buffer.alloc(4+contentLen);
 	},
 	onDataRecv: function(recvHandler){
 		this.recvHandler = recvHandler;
-	},
-	_onDataRecv: function(){
-		console.log("triger", this.checkRecv());
-		if(this.recvHandler && this.checkRecv()){
-			this.recvHandler(this.packBuf.slice(4));
-			this.running = false;
-		}
 	},
 	//检查是否接收完成
 	checkRecv: function(){
@@ -45,18 +34,15 @@ Package.prototype = {
 		if(this.packBuf === null || this.packBuf.length < 4){
 			return false;
 		}
-
+		//内容还没接收完
 		var contentLen = this.packBuf.readUInt32BE(0);
-		var recvLen = this.packBuf.slice(4).length;
-		if(contentLen !== recvLen){
-			return false;
-		}
-		if(this.length != (recvLen+4)){
+		if(contentLen !== this.packLen-4){
 			return false;
 		}
 
 		return true;
 	},
+	//对过来的buffer进行打包
 	pack: function(buffer){
 		var bufferLength = buffer.length;
 		//用4个字节记录buf的长度
@@ -64,10 +50,13 @@ Package.prototype = {
 		packBuf.writeUInt32BE(bufferLength, 0);//记录
 		buffer.copy(packBuf, 4);
 		return packBuf;		
+	},
+	//对打包后的buffer进行解包
+	unPack: function(packBuf){
+		var buffer = packBuf.slice(4);
+		return buffer;
 	}
-
 };
-
 module.exports = Package;
 
 (function TestCase(){
@@ -89,5 +78,4 @@ module.exports = Package;
 	pack.putData(buf2);
 	pack.putData(buf3);
 
-
-});
+}());
